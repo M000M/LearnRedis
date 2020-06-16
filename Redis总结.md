@@ -1,3 +1,5 @@
+
+
 ## Redis总结	
 
 redis获取/设置密码
@@ -75,6 +77,8 @@ Redis控制数据的生命周期，通过数据是否失效控制业务行为，
 **hgetall** key
 
 **hdel** key field
+
+hlen key  查看hash有几个field
 
 
 
@@ -470,4 +474,287 @@ keys u[st]er:1 查询所有以u开头，以er:1结尾，中间包含一个字母
 
 
 ### Jedis
+
+连接吃
+
+
+
+### 持久化
+
+RDB持久乎方式
+
+**save**  指令
+
+每执行一次就生成一个.rdb文件
+
+配置文件
+
+dbfilename dump.rdb
+
+​		说明：设置本地数据库文件名，默认值为dump.rdb
+
+​		经验：通常设置为dump-端口号.rdb
+
+dir
+
+​		说明：设置存储.rdb文件的路径
+
+​		经验：通常设置成存储空间较大的目录中，名称为data
+
+rdbcompression yes
+
+​		说明：设置存储至本地数据库时是否压缩数据，默认为yes，采用LZF压缩
+
+​		经验：通常默认为开启，如果设置为no, 可以节省CPU运行时间，但是会使得存储的文件变大（巨大）
+
+rdbchecksum yes
+
+​		说明：设置是否进行RDB文件格式校验，该校验过程在写文件和读文件过程均进行
+
+​		经验：通常默认为开启状态，如果设置为no，可以节约读写过程约10%的时间消耗，但是存储有一定的数据损坏风险
+
+
+
+**bgsave**   后台执行保存		
+
+![image-20200615172424557](/Users/didi/Library/Application Support/typora-user-images/image-20200615172424557.png)
+
+返回的消息在日志文件中
+
+
+
+**配置**
+
+**save** second changes (second秒内有changes个被修改过则执行一次bbgsave指令)
+
+在conf文件中进行配置
+
+范例：
+
+save 900 1
+
+save 300 10
+
+save 60 1000
+
+<img src="/Users/didi/Library/Application Support/typora-user-images/image-20200616103559473.png" alt="image-20200616103559473" style="zoom: 33%;" />
+
+这3种情况都视为改变了key
+
+<img src="/Users/didi/Library/Application Support/typora-user-images/image-20200616103800860.png" alt="image-20200616103800860" style="zoom:33%;" />
+
+
+
+RDB特俗启动形式
+
+全量复制
+
+​		主从复制种用到
+
+服务器运行过程中启动
+
+​		**debug** reload
+
+关闭服务器时指定保存数据
+
+​		**shutdown** save
+
+
+
+**RDB优点**
+
+- RDB是一个紧凑的二进制文件，存储效率高
+- RDB内部存储的是Redis在某个**<u>时间点</u>**的数据快照，非常适合数据备份，全量复制等场景
+- RDB恢复数据的速度要比AOF快很多
+- 应用：服务器中每X小时执行bgsave备份，并将RDB文件拷贝到远程及其中，用于灾难恢复
+
+**RDB缺点**
+
+- RDB方式无论是执行指令还是利用配置，无法做到实时持久化，具有较大的可能性丢失数据
+- bgsave指令每次执行fork操作创建子进程，要牺牲一些性能
+- Redis的众多版本中未进行RDB文件格式的版本统一，有可能出夏安各版本服务之间数据格式无法兼容的现象
+
+
+
+### AOF
+
+AOF(Append only file)持久化：以独立日志的方式记录每次写命令，重启时再重新执行AOF文件中命令以达到恢复数据的目的。与RDB相比可以简单描述为**<u>改记录数据为记录数据产生的过程</u>**。
+
+AOF的主要作用是解决了数据持久化的实时性，目前已经是Redis持久话的主流方式
+
+
+
+**优先用AOF**
+
+
+
+<img src="/Users/didi/Library/Application Support/typora-user-images/image-20200616105340292.png" alt="image-20200616105340292" style="zoom:33%;" />
+
+**AOF写数据三种策略（appendfsync）**
+
+- always(每次)
+
+	 	每次写入操作均同步到AOF文件中，**数据零误差**，**性能较低**，不建议使用
+
+- everysec(每秒)
+
+	 	每秒将缓存区中的指令同步到AOF文件中，数据准确性较高，性能较高，建议使用，也是默认配置
+
+	​	 在系统突然宕机的情况下丢失1秒数据
+
+- no(系统性能)
+
+	​	 由操作系统控制每次同步到AOF文件的周期，整体过程不可控
+
+**AOF功能开启**
+
+配置
+
+**appendonly** yes|no
+
+作用
+
+​		是否开启AOF持久化功能，默认为不开启状态
+
+配置
+
+**appendfsync** always|everysec|no
+
+作用
+
+​		AOF写数据策略
+
+**AOF相关配置**
+
+- 配置
+
+	**appendfilename** filename
+
+- 作用
+
+	AOF持久化文件名，默认文件名为appendonly.aof，建议配置为appendonly-端口号.aof
+
+- 配置
+
+	**dir**
+
+- 作用
+
+	AOF持久化文件保存路径，与RDB持久化文件保持一致即可
+
+
+
+#### AOF重写
+
+AOF重写机制压缩。就是将对同一个数据的若干条命令执行结果转化成最终结果数据对应的指令进行记录
+
+- 降低磁盘占用量，提高磁盘利用率；
+- 提高持久化效率，降低持久化写时间，提高IO性能；
+- 降低数据恢复用时，提高数据恢复效率
+
+
+
+#### AOF重写规则
+
+- 进程内已超时的数据不再写入文件
+
+- 忽略无效指令，重写时使用进程内数据直接生成，这样新的AOF文件只保留最终数据的写入命令
+
+	如del key1、hdel key2、srem key3、set key4 111、set key4 222等
+
+- 对同一数据的多条写命令合并为一条命令
+
+	如lpush list1 a、lpush list1 b、lpush list1 c可以转化为：lpush list1 a, b, c
+
+	为了防止数据量过大造成客户端缓冲区溢出，对list、set、hash、zset等类型，每条指令最多写入64个元素
+
+配置文件
+
+**手动重写**
+
+**bgrewriteaof**
+
+<img src="/Users/didi/Library/Application Support/typora-user-images/image-20200616183442853.png" alt="image-20200616183442853" style="zoom:33%;" />
+
+**自动重写触发条件设置**
+
+**auto-aof-rewrite-min-size** size
+
+**auto-aof-rewrite-percentage** percentage
+
+**自动重写触发比对参数（运行指令info Persistence获取具体信息）**
+
+**aof_current_size**
+
+**aof_base_size**
+
+**自动重写触发条件**
+
+**aof_current_size>aauto-aof-rewrite-min-size**
+
+**aof_current_size - aof_base_size / aof_baase_size >= auto-aof-rewrite-percentage**
+
+![image-20200616184333973](/Users/didi/Library/Application Support/typora-user-images/image-20200616184333973.png)
+
+<img src="/Users/didi/Library/Application Support/typora-user-images/image-20200616184457268.png" alt="image-20200616184457268" style="zoom:33%;" />
+
+<img src="/Users/didi/Library/Application Support/typora-user-images/image-20200616184615523.png" alt="image-20200616184615523" style="zoom:33%;" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
