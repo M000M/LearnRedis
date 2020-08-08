@@ -108,7 +108,7 @@ hash类型下的value只能存储字符串，不能再嵌套存储其他类型�
 
 hash的设计初衷不是为了存储对象的，因此不可滥用
 
-hgetall操作可以获取全部属性，如果内部field过多，效率很低
+**hgetall**操作可以获取全部属性，如果内部field过多，效率很低
 
 
 
@@ -120,7 +120,7 @@ string存储对象（json）与hash存储对象，string在于存储，hash在�
 
 以用户ID作为key，商品编号作为field，商品数量作为value
 
-当前仅仅是将数据存储到了Redis中，宾没有起到加速的作用，商品信息还需要二次查询数据库
+当前仅仅是将数据存储到了Redis中，并没有起到加速的作用，商品信息还需要二次查询数据库
 
 - 每条购物车中的商品记录保存成两条field
 
@@ -197,7 +197,7 @@ Redis应用于抢购，限购类、限量发放优惠卷、激活码等业务的
 
 - 移除指定数据
 
-> **lrem** key count value （value为从左边开始删除指定个数的value）
+> **lrem** key count value （从左边开始删除指定个数的value）
 
 
 
@@ -422,7 +422,7 @@ type key      获取key的类型
 keys *        所有
 keys it*      查询所有以it开头
 keys *heima   查询所有以heima结尾
-keys ??heima  查询所有前面两个字符人一，后面以heima结尾
+keys ??heima  查询所有前面两个字符任意，后面以heima结尾
 keys user:?   查询所有以user:开头，最后一个字符任意
 keys u[st]er:1 查询所有以u开头，以er:1结尾，中间包含一个字母，s或t
 ```
@@ -435,7 +435,7 @@ keys u[st]er:1 查询所有以u开头，以er:1结尾，中间包含一个字母
 
 
 
-对所有key排序
+对key中所有元素排序
 
 **sort**
 
@@ -479,7 +479,7 @@ keys u[st]er:1 查询所有以u开头，以er:1结尾，中间包含一个字母
 
 ### Jedis
 
-连接吃
+连接池
 
 
 
@@ -1074,7 +1074,7 @@ LogLog算法
 
 - 建立连接阶段（即准备阶段）
 - 数据同步阶段
-- 命令椽笔阶段
+- 命令传递阶段
 
 <img src="/Users/didi/Library/Application Support/typora-user-images/image-20200619115650244.png" alt="image-20200619115650244" style="zoom: 50%;" />
 
